@@ -1,229 +1,327 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import EMOTES from './emotes.js'
 
 const API_BASE = 'http://37.27.54.248:26712/join'
-
-const EMOTES = [
-  { id: 0,   name: 'Wave',         icon: '👋', cat: 'Greetings' },
-  { id: 1,   name: 'Dance',        icon: '💃', cat: 'Dance' },
-  { id: 2,   name: 'Clap',         icon: '👏', cat: 'Reactions' },
-  { id: 3,   name: 'Thumbs Up',    icon: '👍', cat: 'Reactions' },
-  { id: 4,   name: 'Heart',        icon: '❤️',  cat: 'Love' },
-  { id: 5,   name: 'Flex',         icon: '💪', cat: 'Victory' },
-  { id: 6,   name: 'Spin',         icon: '🌀', cat: 'Dance' },
-  { id: 7,   name: 'Jump',         icon: '🦘', cat: 'Dance' },
-  { id: 8,   name: 'Point',        icon: '☝️',  cat: 'Reactions' },
-  { id: 9,   name: 'Bow',          icon: '🙇', cat: 'Greetings' },
-  { id: 10,  name: 'Laugh',        icon: '😂', cat: 'Reactions' },
-  { id: 11,  name: 'Salute',       icon: '🫡', cat: 'Greetings' },
-  { id: 12,  name: 'Peace',        icon: '✌️',  cat: 'Greetings' },
-  { id: 13,  name: 'Facepalm',     icon: '🤦', cat: 'Reactions' },
-  { id: 14,  name: 'Shrug',        icon: '🤷', cat: 'Reactions' },
-  { id: 15,  name: 'Robot',        icon: '🤖', cat: 'Dance' },
-  { id: 16,  name: 'Kiss',         icon: '😘', cat: 'Love' },
-  { id: 17,  name: 'Sunglasses',   icon: '😎', cat: 'Victory' },
-  { id: 18,  name: 'Cry',          icon: '😭', cat: 'Reactions' },
-  { id: 19,  name: 'Disco',        icon: '🕺', cat: 'Dance' },
-  { id: 20,  name: 'Dab',          icon: '🤙', cat: 'Dance' },
-  { id: 21,  name: 'Floss',        icon: '🎶', cat: 'Dance' },
-  { id: 22,  name: 'Crown',        icon: '👑', cat: 'Victory' },
-  { id: 23,  name: 'Fire',         icon: '🔥', cat: 'Victory' },
-  { id: 24,  name: 'Star',         icon: '⭐', cat: 'Victory' },
-  { id: 25,  name: 'Confused',     icon: '😵', cat: 'Reactions' },
-  { id: 26,  name: 'Shock',        icon: '😱', cat: 'Reactions' },
-  { id: 27,  name: 'Wink',         icon: '😉', cat: 'Love' },
-  { id: 28,  name: 'Cool',         icon: '🤟', cat: 'Greetings' },
-  { id: 29,  name: 'Sick Moves',   icon: '🎸', cat: 'Dance' },
-  { id: 30,  name: 'Pout',         icon: '😤', cat: 'Reactions' },
-  { id: 31,  name: 'Moonwalk',     icon: '🌙', cat: 'Dance' },
-  { id: 32,  name: 'Sneeze',       icon: '🤧', cat: 'Reactions' },
-  { id: 33,  name: 'Zombie',       icon: '🧟', cat: 'Dance' },
-  { id: 34,  name: 'Meditate',     icon: '🧘', cat: 'Dance' },
-  { id: 35,  name: 'Butterfly',    icon: '🦋', cat: 'Dance' },
-  { id: 36,  name: 'Hug',          icon: '🤗', cat: 'Love' },
-  { id: 37,  name: 'OK',           icon: '🆗', cat: 'Reactions' },
-  { id: 38,  name: 'Trophy',       icon: '🏆', cat: 'Victory' },
-  { id: 39,  name: 'Sparkle',      icon: '✨', cat: 'Victory' },
-  { id: 40,  name: 'Penguin',      icon: '🐧', cat: 'Dance' },
-  { id: 41,  name: 'Cowboy',       icon: '🤠', cat: 'Dance' },
-  { id: 42,  name: 'Ghost',        icon: '👻', cat: 'Dance' },
-  { id: 43,  name: 'Ninja',        icon: '🥷', cat: 'Dance' },
-  { id: 44,  name: 'Alien',        icon: '👽', cat: 'Dance' },
-  { id: 45,  name: 'Magic',        icon: '🪄', cat: 'Dance' },
-  { id: 46,  name: 'Rocket',       icon: '🚀', cat: 'Victory' },
-  { id: 47,  name: 'Diamond',      icon: '💎', cat: 'Victory' },
-  { id: 48,  name: 'Party',        icon: '🥳', cat: 'Greetings' },
-  { id: 49,  name: 'Bye',          icon: '🫶', cat: 'Greetings' },
-]
-
-const CATEGORIES = ['All', ...Array.from(new Set(EMOTES.map(e => e.cat)))]
+const CDN = 'https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/'
 
 function buildUrl(tc, uids, emoteId) {
-  const params = new URLSearchParams({ tc: tc.trim() })
-  const filled = uids.filter(u => u.trim())
-  filled.forEach((uid, i) => params.set(`uid${i + 1}`, uid.trim()))
-  for (let i = filled.length + 1; i <= 4; i++) params.set(`uid${i}`, '')
+  const params = new URLSearchParams()
+  params.set('tc', tc.trim())
+  const filled = uids.map(u => u.trim()).filter(Boolean)
+  for (let i = 0; i < 4; i++) params.set(`uid${i + 1}`, filled[i] || '')
   params.set('emote_id', emoteId)
   return `${API_BASE}?${params.toString()}`
 }
 
+const RARE_RANK = { GOLD: 0, RED: 1, PINK: 2, PURPLE: 3, BLUE: 4, GREEN: 5 }
+const RARE_LABEL = { GOLD: 'Legendary', RED: 'Epic+', PINK: 'Epic', PURPLE: 'Rare+', BLUE: 'Rare', GREEN: 'Common' }
+
 export default function App() {
-  const [teamCode, setTeamCode] = useState('')
+  const [tc, setTc] = useState('')
   const [uids, setUids] = useState(['', '', '', ''])
   const [selected, setSelected] = useState(null)
-  const [status, setStatus] = useState(null)   // { type: 'success'|'error'|'loading', msg }
-  const [sentIds, setSentIds] = useState(new Set())
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All')
+  const [rareFilter, setRareFilter] = useState('ALL')
+  const [status, setStatus] = useState(null)
+  const [sending, setSending] = useState(false)
+  const [sentSet, setSentSet] = useState(new Set())
+  const searchRef = useRef(null)
 
-  const hasUid = uids.some(u => u.trim())
-  const hasTeamCode = teamCode.trim() !== ''
+  const selectedEmote = EMOTES.find(e => e.id === selected) || null
 
   const filtered = useMemo(() => {
-    return EMOTES.filter(e => {
-      const matchCat = category === 'All' || e.cat === category
-      const matchSearch = !search || e.name.toLowerCase().includes(search.toLowerCase()) || String(e.id).includes(search)
-      return matchCat && matchSearch
-    })
-  }, [search, category])
-
-  async function sendEmote(emoteId) {
-    if (!hasTeamCode) {
-      setStatus({ type: 'error', msg: 'Please enter a Team Code before sending.' })
-      return
+    let list = EMOTES
+    if (rareFilter !== 'ALL') list = list.filter(e => e.rare === rareFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(e => e.name.toLowerCase().includes(q) || String(e.id).includes(q))
     }
-    if (!hasUid) {
-      setStatus({ type: 'error', msg: 'Please enter at least one Player UID before sending.' })
-      return
-    }
-    setStatus({ type: 'loading', msg: `Sending emote #${emoteId}…` })
-    try {
-      const url = buildUrl(teamCode, uids, emoteId)
-      const res = await fetch(url)
-      const data = await res.json()
-      if (data.status === 'success') {
-        setSentIds(prev => new Set([...prev, emoteId]))
-        setStatus({ type: 'success', msg: `Emote #${emoteId} sent to ${data.uids.join(', ')} ✓` })
-      } else {
-        setStatus({ type: 'error', msg: data.message || 'API returned an error.' })
-      }
-    } catch (err) {
-      setStatus({ type: 'error', msg: 'Network error — could not reach the API.' })
-    }
-  }
+    return list
+  }, [search, rareFilter])
 
   function updateUid(i, val) {
-    setUids(prev => { const next = [...prev]; next[i] = val; return next })
+    setUids(prev => { const n = [...prev]; n[i] = val; return n })
   }
 
+  async function handleSend() {
+    if (!tc.trim()) { setStatus({ type: 'error', msg: 'Enter a team code.' }); return }
+    if (!selected) { setStatus({ type: 'error', msg: 'Select an emote first.' }); return }
+    if (!uids.some(u => u.trim())) { setStatus({ type: 'error', msg: 'Enter at least one player UID.' }); return }
+    setSending(true)
+    setStatus({ type: 'loading', msg: 'Sending…' })
+    try {
+      const res = await fetch(buildUrl(tc, uids, selected))
+      const data = await res.json()
+      if (data.status === 'success') {
+        setSentSet(prev => new Set([...prev, selected]))
+        setStatus({ type: 'success', msg: `Sent to ${data.uids.join(', ')}` })
+      } else {
+        setStatus({ type: 'error', msg: data.message || 'API error.' })
+      }
+    } catch {
+      setStatus({ type: 'error', msg: 'Network error — check your connection.' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  // clear status when inputs change
+  useEffect(() => { setStatus(null) }, [tc, uids, selected])
+
+  const filledUids = uids.filter(u => u.trim())
+
   return (
-    <>
-      <header>
-        <div className="header-ornament">Emote Sender</div>
-        <h1>Send Your Emote</h1>
-        <p className="subtitle">Select players &amp; choose your emote</p>
-      </header>
+    <div className="app">
+      {/* ── Nav ── */}
+      <nav className="nav">
+        <div className="nav-brand">
+          <span className="nav-icon">⚡</span>
+          <span className="nav-title">emote sender</span>
+          <span className="nav-badge">FREE FIRE</span>
+        </div>
+        <div className="nav-status">
+          <span className="status-dot" />
+          RELAY READY
+        </div>
+      </nav>
 
-      <div className="wrapper">
-        {/* ── UIDs ── */}
-        <div className="uid-panel">
-          <p className="section-label">Session Details</p>
+      {/* ── Hero ── */}
+      <section className="hero">
+        <div className="hero-inner">
+          <p className="hero-eyebrow">— GROUP ACTION, SIMPLIFIED</p>
+          <h1 className="hero-h1">
+            One emote.<br />
+            <span className="hero-accent">Everyone in.</span>
+          </h1>
+          <p className="hero-sub">
+            Pick a celebration from the catalog, set your squad target,<br />
+            and send it through in one focused pass.
+          </p>
+        </div>
+        <div className="hero-callout">
+          <p className="callout-title">Built for the moment<br />before the match starts.</p>
+          <p className="callout-body">No accounts. No extra steps.<br />Just the selected emote and its target group.</p>
+        </div>
+      </section>
 
-          <div className="tc-row">
-            <div className="uid-field tc-field">
-              <label>Team Code</label>
+      {/* ── Main panels ── */}
+      <div className="panels">
+
+        {/* ── Left: Configure ── */}
+        <div className="panel panel-left">
+          <div className="panel-header">
+            <span className="panel-step">01 / CONFIGURE</span>
+            <span className="panel-count">{EMOTES.length} emotes</span>
+          </div>
+          <h2 className="panel-title">Set the send</h2>
+
+          {/* Team code */}
+          <div className="field-group">
+            <div className="field-row">
+              <label className="field-label">Team code</label>
+              <span className="field-req">required</span>
+            </div>
+            <div className="input-prefix-wrap">
+              <span className="input-prefix">#</span>
               <input
+                className="input-field"
                 type="text"
-                placeholder="Enter team code (required)"
-                value={teamCode}
-                onChange={e => setTeamCode(e.target.value)}
+                placeholder="Enter the room code"
+                value={tc}
+                onChange={e => setTc(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="uid-divider" />
+          {/* Emote picker */}
+          <div className="field-group">
+            <div className="field-row">
+              <label className="field-label">Choose an emote</label>
+              <span className="field-hint">tap to select one</span>
+            </div>
 
-          <p className="uid-sub-label">Player UIDs</p>
-          <div className="uid-grid">
-            {uids.map((val, i) => (
-              <div className="uid-field" key={i}>
-                <label>Player {i + 1}</label>
-                <input
-                  type="text"
-                  placeholder={`UID ${i + 1}${i === 0 ? ' (required)' : ' (optional)'}`}
-                  value={val}
-                  onChange={e => updateUid(i, e.target.value)}
-                />
+            {/* Search + filters */}
+            <div className="emote-toolbar">
+              <input
+                ref={searchRef}
+                className="search-field"
+                type="text"
+                placeholder="Search emotes…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <div className="rare-chips">
+                {['ALL','GREEN','BLUE','PURPLE','PINK','RED','GOLD'].map(r => (
+                  <button
+                    key={r}
+                    className={`chip chip-${r.toLowerCase()}${rareFilter === r ? ' active' : ''}`}
+                    onClick={() => setRareFilter(r)}
+                  >
+                    {r === 'ALL' ? 'All' : RARE_LABEL[r]}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Grid */}
+            <div className="emote-grid">
+              {filtered.map(emote => (
+                <button
+                  key={emote.id}
+                  className={[
+                    'emote-card',
+                    `rare-${emote.rare.toLowerCase()}`,
+                    selected === emote.id ? 'selected' : '',
+                    sentSet.has(emote.id) ? 'sent' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => setSelected(emote.id === selected ? null : emote.id)}
+                  title={emote.name}
+                >
+                  {selected === emote.id && <span className="card-check">✓</span>}
+                  <img
+                    className="emote-img"
+                    src={emote.img}
+                    alt={emote.name}
+                    loading="lazy"
+                    onError={e => { e.target.style.opacity = '0.2' }}
+                  />
+                  <span className="emote-name">{emote.name}</span>
+                  <span className="emote-id">{emote.id}</span>
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <div className="emote-empty">No emotes match your search.</div>
+              )}
+            </div>
           </div>
 
-          {status && (
-            <div className={`status-banner ${status.type}`}>
-              {status.type === 'loading' && <span className="spinner" />}
-              {status.type === 'success' && <span className="checkmark">✓</span>}
-              {status.type === 'error' && <span>✗</span>}
-              <span>{status.msg}</span>
+          {/* Players */}
+          <div className="field-group">
+            <div className="field-row">
+              <label className="field-label">Players</label>
+              <span className="field-hint">one required · three optional</span>
             </div>
-          )}
-        </div>
-
-        {/* ── Emote grid ── */}
-        <div className="emote-section">
-          <p className="section-label">Emotes</p>
-
-          <div className="search-row">
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search emotes…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <div className="filter-chips">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  className={`chip${category === cat ? ' active' : ''}`}
-                  onClick={() => setCategory(cat)}
-                >
-                  {cat}
-                </button>
+            <div className="uid-grid">
+              {uids.map((val, i) => (
+                <div key={i} className="uid-wrap">
+                  <span className="uid-num">{i + 1}</span>
+                  <input
+                    className={`input-field uid-input${i === 0 ? ' uid-required' : ''}`}
+                    type="text"
+                    placeholder={i === 0 ? 'Required UID' : `Optional UID ${i + 1}`}
+                    value={val}
+                    onChange={e => updateUid(i, e.target.value)}
+                  />
+                </div>
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="emote-grid">
-            {filtered.map(emote => (
-              <div
-                key={emote.id}
-                className={[
-                  'emote-card',
-                  selected === emote.id ? 'selected' : '',
-                  sentIds.has(emote.id) ? 'sent' : '',
-                  status?.type === 'loading' && selected === emote.id ? 'sending' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => setSelected(emote.id === selected ? null : emote.id)}
-              >
-                <span className="emote-icon">{emote.icon}</span>
-                <div className="emote-name">{emote.name}</div>
-                <div className="emote-id">ID · {emote.id}</div>
-                <button
-                  className="send-btn"
-                  onClick={e => { e.stopPropagation(); sendEmote(emote.id) }}
-                >
-                  {status?.type === 'loading' && selected === emote.id
-                    ? 'Sending…'
-                    : sentIds.has(emote.id) ? 'Send Again' : 'Send'}
-                </button>
-              </div>
-            ))}
+        {/* ── Right: Review ── */}
+        <div className="panel panel-right">
+          <div className="panel-header">
+            <span className="panel-step light">02 / REVIEW</span>
+            <span className="shield-icon">🛡</span>
           </div>
+          <h2 className="panel-title light">Current target</h2>
+
+          {/* Selected emote preview */}
+          <div className="preview-card">
+            {selectedEmote ? (
+              <>
+                <div className="preview-img-wrap">
+                  <img src={selectedEmote.img} alt={selectedEmote.name} className="preview-img" />
+                </div>
+                <div className="preview-info">
+                  <span className="preview-eyebrow">SELECTED EMOTE</span>
+                  <p className="preview-name">{selectedEmote.name}</p>
+                  <p className="preview-meta">
+                    FF catalog &nbsp;/&nbsp; {selectedEmote.id}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="preview-empty">
+                <span className="preview-empty-icon">⚡</span>
+                <p>No emote selected</p>
+              </div>
+            )}
+          </div>
+
+          {/* Live summary */}
+          <div className="summary-block">
+            <div className="summary-header">
+              <span>GROUP DETAILS</span>
+              <span>LIVE PREVIEW</span>
+            </div>
+            <div className="summary-row">
+              <div className="summary-label">
+                <span className="summary-icon">#</span>
+                <span>Team code</span>
+              </div>
+              <span className={`summary-val${!tc.trim() ? ' dim' : ''}`}>
+                {tc.trim() || 'not set'}
+              </span>
+            </div>
+            <div className="summary-row">
+              <div className="summary-label">
+                <span className="summary-icon">👤</span>
+                <span>Required UID</span>
+              </div>
+              <span className={`summary-val${!uids[0].trim() ? ' dim' : ''}`}>
+                {uids[0].trim() || 'not set'}
+              </span>
+            </div>
+            <div className="summary-row">
+              <div className="summary-label">
+                <span className="summary-icon">👥</span>
+                <span>Optional UIDs</span>
+              </div>
+              <span className={`summary-val${filledUids.length <= 1 ? ' dim' : ''}`}>
+                {filledUids.length > 1 ? filledUids.slice(1).join(', ') : 'none'}
+              </span>
+            </div>
+            <div className="summary-row">
+              <div className="summary-label">
+                <span className="summary-icon">⚡</span>
+                <span>Emote</span>
+              </div>
+              <span className={`summary-val${!selectedEmote ? ' dim' : ''}`}>
+                {selectedEmote ? selectedEmote.name : 'not selected'}
+              </span>
+            </div>
+          </div>
+
+          {/* Status */}
+          {status && (
+            <div className={`status-msg status-${status.type}`}>
+              {status.type === 'loading' && <span className="spin" />}
+              {status.type === 'success' && '✓ '}
+              {status.type === 'error' && '✗ '}
+              {status.msg}
+            </div>
+          )}
+
+          {/* Send button */}
+          <button
+            className="send-btn"
+            onClick={handleSend}
+            disabled={sending}
+          >
+            {sending ? 'Sending…' : 'Send Emote →'}
+          </button>
+
+          <p className="disclaimer">
+            Sends to all filled UIDs in a single request.
+          </p>
         </div>
       </div>
 
-      <footer>
-        &copy; {new Date().getFullYear()} &nbsp;·&nbsp; Emote Sender &nbsp;·&nbsp; All rights reserved
+      <footer className="footer">
+        <span>Emote Sender · Free Fire Utility</span>
+        <span>Data via ff-item.netlify.app</span>
       </footer>
-    </>
+    </div>
   )
 }
